@@ -43,9 +43,10 @@ def _embed_with_gemini(text: str) -> list[float]:
 
 def _embed_with_ollama(text: str) -> list[float]:
     """Generate embedding using local Ollama."""
-    import ollama
+    from ollama import Client
 
-    response = ollama.embeddings(
+    client = Client(host=settings.ollama_host)
+    response = client.embeddings(
         model=settings.ollama_embedding_model,
         prompt=text
     )

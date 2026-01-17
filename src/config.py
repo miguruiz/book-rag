@@ -43,6 +43,7 @@ class Settings:
     gemini_embedding_model: str = get_config("GEMINI_EMBEDDING_MODEL", "text-embedding-004")
 
     # Ollama settings
+    ollama_host: str = get_config("OLLAMA_HOST", "http://localhost:11434")
     ollama_chat_model: str = get_config("OLLAMA_CHAT_MODEL", "mannix/llama3.1-8b-abliterated")
     ollama_embedding_model: str = get_config("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
 

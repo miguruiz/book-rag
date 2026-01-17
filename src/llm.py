@@ -57,9 +57,10 @@ def _chat_with_gemini(question: str, context: str) -> str:
 
 def _chat_with_ollama(question: str, context: str) -> str:
     """Generate answer using local Ollama."""
-    import ollama
+    from ollama import Client
 
-    response = ollama.chat(
+    client = Client(host=settings.ollama_host)
+    response = client.chat(
         model=settings.ollama_chat_model,
         messages=[
             {"role": "system", "content": RAG_SYSTEM_PROMPT},
