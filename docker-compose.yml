@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Gemini version (cloud LLM)
+  app-gemini:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_PROVIDER=gemini
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      - ./chroma_db:/app/chroma_db
+    profiles:
+      - gemini
+
+  # Ollama version (local LLM)
+  app-ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_PROVIDER=ollama
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ./chroma_db:/app/chroma_db
+    depends_on:
+      - ollama
+    profiles:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - ollama
+
+volumes:
+  ollama_data:

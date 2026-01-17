@@ -72,6 +72,31 @@ uv run uvicorn api:app --reload
 USE_API=true uv run streamlit run web.py
 ```
 
+### Option 5: Docker (Gemini)
+
+```bash
+# Set your API key
+export GOOGLE_API_KEY="your-key-here"
+
+# Run with Docker Compose
+docker compose --profile gemini up --build
+
+# Open http://localhost:8501
+```
+
+### Option 6: Docker (Ollama - fully local)
+
+```bash
+# Run with Docker Compose (includes Ollama container)
+docker compose --profile ollama up --build
+
+# First time: pull models (in another terminal)
+docker exec -it book-rag-ollama-1 ollama pull nomic-embed-text
+docker exec -it book-rag-ollama-1 ollama pull mannix/llama3.1-8b-abliterated
+
+# Open http://localhost:8501
+```
+
 ## Project Structure
 
 ```
