@@ -1,16 +1,20 @@
+"""FastAPI REST API for Book RAG."""
+
 from fastapi import FastAPI, UploadFile, HTTPException
 from pydantic import BaseModel
-from main import get_collection, get_books, ingest_book, delete_book
-import ollama
+from src import get_books, delete_book, ingest_book, query_books, settings
+
+# Validate settings on startup
+settings.validate()
 
 app = FastAPI(
     title="Book RAG API",
     description="Chat with your books using RAG",
-    version="0.1.0"
+    version="0.2.0"
 )
 
 
-# --- Models ---
+# --- Request/Response Models ---
 
 class QueryRequest(BaseModel):
     question: str
@@ -21,11 +25,6 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     sources: list[dict]
-
-
-class BookInfo(BaseModel):
-    book_id: str
-    title: str
 
 
 class IngestResponse(BaseModel):
@@ -77,47 +76,16 @@ def remove_book(book_id: str):
 
 
 @app.post("/query", response_model=QueryResponse)
-def query_books(req: QueryRequest):
+def query(req: QueryRequest):
     """Query books using RAG."""
-    collection = get_collection()
-
-    if collection.count() == 0:
-        raise HTTPException(400, "No books in database. Upload a book first.")
-
-    # Embed the question
-    query_emb = ollama.embeddings(model="nomic-embed-text", prompt=req.question)["embedding"]
-
-    # Query with optional book filter
-    query_params = {
-        "query_embeddings": [query_emb],
-        "n_results": req.n_results
-    }
-    if req.book_id:
-        query_params["where"] = {"book": req.book_id}
-
-    results = collection.query(**query_params)
-    contexts = results["documents"][0]
-    metadatas = results["metadatas"][0]
-
-    # Build context string
-    context = "\n\n---\n\n".join(contexts)
-
-    # Generate answer
-    response = ollama.chat(model="mannix/llama3.1-8b-abliterated", messages=[
-        {"role": "system", "content": "Answer using ONLY the provided context. Be helpful and concise."},
-        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {req.question}"}
-    ])
-
-    # Build sources
-    sources = [
-        {"book": m.get("book", "unknown"), "text": ctx[:200]}
-        for ctx, m in zip(contexts, metadatas)
-    ]
-
-    return QueryResponse(answer=response["message"]["content"], sources=sources)
+    try:
+        result = query_books(req.question, req.book_id, req.n_results)
+        return QueryResponse(**result)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
-    return {"status": "ok"}
+    return {"status": "ok", "provider": settings.llm_provider}

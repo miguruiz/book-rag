@@ -1,0 +1,59 @@
+# Deploy to Google Cloud Run (Gemini version)
+#
+# Triggers on tags matching v*-gcp pattern (e.g., v1.0.0-gcp)
+#
+# Required GitHub secrets:
+#   GCP_PROJECT_ID - Your GCP project ID
+#   GCP_SA_KEY - Service account JSON key with Cloud Run Admin role
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    tags:
+      - 'v*-gcp'
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE: book-rag
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t gcr.io/$PROJECT_ID/$SERVICE:$GITHUB_SHA \
+            -f deploy/cloudrun-gemini/Dockerfile .
+          docker push gcr.io/$PROJECT_ID/$SERVICE:$GITHUB_SHA
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy $SERVICE \
+            --image gcr.io/$PROJECT_ID/$SERVICE:$GITHUB_SHA \
+            --region $REGION \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --set-secrets GOOGLE_API_KEY=google-api-key:latest
+
+      - name: Show deployment URL
+        run: |
+          gcloud run services describe $SERVICE --region $REGION --format 'value(status.url)'

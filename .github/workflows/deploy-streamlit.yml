@@ -1,0 +1,40 @@
+# Deploy to Streamlit Cloud
+#
+# Streamlit Cloud auto-deploys from GitHub, so this workflow just validates the code.
+# Connect your repo at https://share.streamlit.io/
+#
+# Required secrets in Streamlit Cloud:
+#   GOOGLE_API_KEY - Your Gemini API key
+
+name: Validate for Streamlit Cloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Validate imports
+        run: |
+          python -c "from src import settings, get_books, ingest_book, query_books; print('Imports OK')"
+
+      - name: Check Streamlit syntax
+        run: |
+          python -m py_compile web.py
+          echo "Streamlit app syntax OK"

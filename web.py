@@ -1,40 +1,83 @@
-import streamlit as st
-import httpx
-import os
+"""Streamlit Web UI for Book RAG.
 
+This can run in two modes:
+1. Standalone (Streamlit Cloud): Imports src/ directly
+2. With API (Cloud Run): Calls FastAPI backend via HTTP
+
+Set USE_API=true to use API mode.
+"""
+
+import os
+import streamlit as st
+
+USE_API = os.getenv("USE_API", "false").lower() == "true"
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # Page Setup
 st.set_page_config(page_title="Book RAG", page_icon="📚")
 
 
-def api_get(endpoint: str):
-    """GET request to API."""
-    try:
-        resp = httpx.get(f"{API_URL}{endpoint}", timeout=30)
+# --- API vs Direct Mode ---
+
+if USE_API:
+    import httpx
+
+    def api_get(endpoint: str):
+        try:
+            resp = httpx.get(f"{API_URL}{endpoint}", timeout=30)
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.ConnectError:
+            st.error("Cannot connect to API. Is it running?")
+            st.stop()
+
+    def api_post(endpoint: str, **kwargs):
+        resp = httpx.post(f"{API_URL}{endpoint}", timeout=120, **kwargs)
         resp.raise_for_status()
         return resp.json()
-    except httpx.ConnectError:
-        st.error("Cannot connect to API. Is it running?")
-        st.code(f"uv run uvicorn api:app --reload")
+
+    def get_books_list():
+        return api_get("/books")
+
+    def upload_and_ingest(file, book_id, title):
+        files = {"file": (file.name, file.getvalue(), "text/plain")}
+        params = {"book_id": book_id, "title": title}
+        return api_post("/books", files=files, params=params)
+
+    def query_rag(question, book_id):
+        result = api_post("/query", json={"question": question, "book_id": book_id, "n_results": 3})
+        return result
+
+else:
+    # Direct mode - import from src/
+    from src import get_books, ingest_book, query_books, settings
+
+    # Validate on startup
+    try:
+        settings.validate()
+    except ValueError as e:
+        st.error(f"Configuration error: {e}")
         st.stop()
 
+    def get_books_list():
+        return get_books()
 
-def api_post(endpoint: str, **kwargs):
-    """POST request to API."""
-    resp = httpx.post(f"{API_URL}{endpoint}", timeout=120, **kwargs)
-    resp.raise_for_status()
-    return resp.json()
+    def upload_and_ingest(file, book_id, title):
+        text = file.getvalue().decode("utf-8")
+        num_chunks = ingest_book(text, book_id, title)
+        return {"title": title, "chunks": num_chunks}
+
+    def query_rag(question, book_id):
+        return query_books(question, book_id, n_results=3)
 
 
-# Sidebar - Book Selection & Upload
+# --- Sidebar: Book Selection & Upload ---
+
 with st.sidebar:
     st.header("📚 Library")
 
-    # Get available books
-    books = api_get("/books")
+    books = get_books_list()
 
-    # Book selector
     if books:
         book_options = ["All Books"] + books
         selected = st.selectbox("Chat with:", book_options)
@@ -45,58 +88,45 @@ with st.sidebar:
 
     st.divider()
 
-    # Upload section
     st.subheader("Add a Book")
     uploaded_file = st.file_uploader("Upload .txt file", type=["txt"])
 
     if uploaded_file:
-        # Book metadata inputs
         default_id = uploaded_file.name.replace(".txt", "").lower().replace(" ", "-")
         book_id = st.text_input("Book ID", value=default_id)
         book_title = st.text_input("Title", value=default_id.replace("-", " ").title())
 
         if st.button("Ingest Book", type="primary"):
             with st.spinner("Uploading and embedding..."):
-                files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "text/plain")}
-                params = {"book_id": book_id, "title": book_title}
-                result = api_post("/books", files=files, params=params)
-
+                result = upload_and_ingest(uploaded_file, book_id, book_title)
             st.success(f"Added '{result['title']}' ({result['chunks']} chunks)")
             st.rerun()
 
-# Main chat area
+
+# --- Main Chat Area ---
+
 if selected_book:
     st.title(f"💬 Chat with {selected_book}")
 else:
     st.title("💬 Chat with your Books")
 
-# Chat History State
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display old messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat Input
 if not books:
     st.warning("Upload a book in the sidebar to get started!")
 elif prompt := st.chat_input("Ask a question..."):
-    # Display user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Query API
     with st.spinner("Thinking..."):
-        result = api_post("/query", json={
-            "question": prompt,
-            "book_id": selected_book,
-            "n_results": 3
-        })
+        result = query_rag(prompt, selected_book)
 
-    # Display Assistant message
     with st.chat_message("assistant"):
         st.markdown(result["answer"])
         with st.expander("View sources"):

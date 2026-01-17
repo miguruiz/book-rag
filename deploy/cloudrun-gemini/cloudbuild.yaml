@@ -1,0 +1,54 @@
+# Cloud Build configuration for Cloud Run deployment (Gemini version)
+#
+# Usage:
+#   gcloud builds submit --config deploy/cloudrun-gemini/cloudbuild.yaml
+#
+# Required:
+#   - Enable Cloud Build and Cloud Run APIs
+#   - Set GOOGLE_API_KEY in Secret Manager
+
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/book-rag:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/book-rag:latest'
+      - '-f'
+      - 'deploy/cloudrun-gemini/Dockerfile'
+      - '.'
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/book-rag:$SHORT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/book-rag:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'book-rag'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/book-rag:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '1Gi'
+      - '--set-secrets'
+      - 'GOOGLE_API_KEY=google-api-key:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/book-rag:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/book-rag:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
