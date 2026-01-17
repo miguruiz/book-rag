@@ -1,6 +1,29 @@
-# Alice Wonderland RAG
+# Book RAG
 
-A RAG (Retrieval-Augmented Generation) chatbot that answers questions about "Alice's Adventures in Wonderland" using local LLMs via Ollama and ChromaDB for vector storage.
+A RAG (Retrieval-Augmented Generation) chatbot for books. Upload any book and chat with it using local LLMs.
+
+## Architecture
+
+```
+┌─────────────────┐      ┌─────────────────────┐      ┌─────────────────┐
+│    Streamlit    │ ───► │      FastAPI        │ ───► │    ChromaDB     │
+│   (web.py)      │      │     (api.py)        │      │   (vectors)     │
+│   Port 8501     │      │     Port 8000       │      │                 │
+└─────────────────┘      └─────────────────────┘      └─────────────────┘
+                                   │
+                                   ▼
+                         ┌─────────────────────┐
+                         │       Ollama        │
+                         │  (embeddings + LLM) │
+                         └─────────────────────┘
+```
+
+## Features
+
+- Upload multiple books via the web UI
+- Chat with a specific book or all books at once
+- REST API for programmatic access
+- OpenAPI docs at `/docs`
 
 ## Requirements
 
@@ -13,60 +36,53 @@ A RAG (Retrieval-Augmented Generation) chatbot that answers questions about "Ali
 ## Installation
 
 ```bash
-# Install dependencies using uv
 uv sync
 
-# Pull the required Ollama models
 ollama pull nomic-embed-text
 ollama pull mannix/llama3.1-8b-abliterated
 ```
 
-## Usage
+## Running Locally
 
-### 1. Ingest the data
-
-First, build the vector database from the source text:
+Start both services (in separate terminals):
 
 ```bash
-uv run python main.py
-```
+# Terminal 1: API
+uv run uvicorn api:app --reload
 
-This reads `data/alice.txt`, splits it into paragraphs, generates embeddings, and stores them in ChromaDB.
-
-### 2. Query via CLI
-
-Run a single query from the command line:
-
-```bash
-uv run python query.py
-```
-
-### 3. Web Interface
-
-Launch the Streamlit chat interface:
-
-```bash
+# Terminal 2: Web UI
 uv run streamlit run web.py
 ```
 
-Then open http://localhost:8501 in your browser.
+Then open http://localhost:8501
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/books` | List all books |
+| POST | `/books` | Upload and ingest a book |
+| DELETE | `/books/{id}` | Delete a book |
+| POST | `/query` | Query books with RAG |
+| GET | `/health` | Health check |
+| GET | `/docs` | OpenAPI documentation |
+
+### Example: Query via curl
+
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Who is the Queen?", "book_id": "alice"}'
+```
 
 ## Project Structure
 
 ```
-alice-wonderland/
-├── main.py          # Data ingestion script
-├── query.py         # CLI query interface
-├── web.py           # Streamlit web UI
-├── data/
-│   └── alice.txt    # Source text (Alice in Wonderland)
-├── pyproject.toml   # Project configuration
-└── uv.lock          # Dependency lock file
+book-rag/
+├── api.py           # FastAPI backend
+├── web.py           # Streamlit frontend
+├── main.py          # Core ingestion logic
+├── query.py         # CLI query tool
+├── data/            # Book files
+└── chroma_db/       # Vector database
 ```
-
-## How It Works
-
-1. **Ingestion**: Text is split into paragraphs and embedded using `nomic-embed-text`
-2. **Storage**: Embeddings are stored in a local ChromaDB database
-3. **Query**: User questions are embedded and matched against stored paragraphs
-4. **Generation**: Retrieved context is passed to the LLM to generate grounded answers
