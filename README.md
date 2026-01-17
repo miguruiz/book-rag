@@ -1,4 +1,4 @@
-# Quijote RAG
+# Alice Wonderland RAG
 
 A RAG (Retrieval-Augmented Generation) chatbot that answers questions about "Alice's Adventures in Wonderland" using local LLMs via Ollama and ChromaDB for vector storage.
 
@@ -54,7 +54,7 @@ Then open http://localhost:8501 in your browser.
 ## Project Structure
 
 ```
-quijote-rag/
+alice-wonderland/
 ├── main.py          # Data ingestion script
 ├── query.py         # CLI query interface
 ├── web.py           # Streamlit web UI
