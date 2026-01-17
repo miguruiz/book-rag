@@ -91,8 +91,8 @@ docker compose --profile gemini up --build
 docker compose --profile ollama up --build
 
 # First time: pull models (in another terminal)
-docker exec -it book-rag-ollama-1 ollama pull nomic-embed-text
-docker exec -it book-rag-ollama-1 ollama pull mannix/llama3.1-8b-abliterated
+docker exec -it book-rag-ollama ollama pull nomic-embed-text
+docker exec -it book-rag-ollama ollama pull mannix/llama3.1-8b-abliterated
 
 # Open http://localhost:8501
 ```
