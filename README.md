@@ -132,6 +132,7 @@ All configuration via environment variables (or Streamlit secrets):
 | `GOOGLE_API_KEY` | - | Required for Gemini |
 | `GEMINI_CHAT_MODEL` | `gemini-2.0-flash` | Gemini model for chat |
 | `GEMINI_EMBEDDING_MODEL` | `text-embedding-004` | Gemini model for embeddings |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL (for Docker) |
 | `OLLAMA_CHAT_MODEL` | `mannix/llama3.1-8b-abliterated` | Ollama model for chat |
 | `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model for embeddings |
 | `USE_API` | `false` | Use FastAPI backend vs direct imports |
